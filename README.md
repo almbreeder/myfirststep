@@ -1,2 +1,2 @@
-# program
-The program is used to practice the basic of digital picture processing.
+# Exercise
+ Programs are used to practice the basic of digital picture processing.
