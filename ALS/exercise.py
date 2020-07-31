@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
 import re
+import os
 
 exercise_num = 306
 knowledge_point_num = 25
 
 ## create table
-underPath = 'D:/python/ALS/'
+underPath = os.getcwd() + '\\'
 
 chapter4_target = pd.read_excel(underPath+'初中物理8年级教研精选练习目标描述.xlsx')
 # 每个知识点对应的题目数量: {"target_code": num }
