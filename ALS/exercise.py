@@ -7,38 +7,38 @@ exercise_num = 306
 knowledge_point_num = 25
 
 ## create table
+
 underPath = os.getcwd() + '\\'
 
-chapter4_target = pd.read_excel(underPath+'初中物理8年级教研精选练习目标描述.xlsx')
+chapter4_target = pd.read_excel(underPath + '初中物理8年级教研精选练习目标描述.xlsx')
 # 每个知识点对应的题目数量: {"target_code": num }
-chapter4_requirement = dict(zip(chapter4_target['target_code'],chapter4_target['建议配题数量']))
+chapter4_requirement = dict(zip(chapter4_target['target_code'], chapter4_target['建议配题数量']))
 # {id : "knowledge/target_code"}
-chapter4_knowledge_itos = dict(zip([i for i in range(25)],chapter4_target['target_code']))
+chapter4_knowledge_itos = dict(zip([i for i in range(25)], chapter4_target['target_code']))
 
-chapter4_exercises = pd.read_excel(underPath+'初中物理8年级教研精选题306题.xlsx')
-chapter4_exercises = chapter4_exercises['exercise_code']
+chapter4_exercises_file = pd.read_excel(underPath + '初中物理8年级教研精选题306题.xlsx')
+chapter4_exercises = chapter4_exercises_file['exercise_code']
 
 pre = ''
 # 章节四的每个知识点有多少题量 {"knowlege" : num}
 chapter4_exercises_num = {}
 for exercise in chapter4_exercises:
-    if pre!= exercise[:-3]:
-        pre=exercise[:-3]
+    if pre != exercise[:-3]:
+        pre = exercise[:-3]
         chapter4_exercises_num[pre] = 1
     else:
-        chapter4_exercises_num[exercise[:-3]] +=1
+        chapter4_exercises_num[exercise[:-3]] += 1
 
-
-#用户列表
-userlist = {0:"test"}
-userlist_stoi = {"test":0}
+# 用户列表
+userlist = {0: "test"}
+userlist_stoi = {"test": 0}
 # 用户的做题记录表
-userExerciseTable = np.zeros([1,exercise_num,2])
+userExerciseTable = np.zeros([1, exercise_num, 2])
 # 用户知识点学习情况
-userKnowledgeTable = np.zeros([1,knowledge_point_num,2])
+userKnowledgeTable = np.zeros([1, knowledge_point_num, 2])
 
 
-def login(username,userlist):
+def login(username, userlist):
     if username in userlist.values():
         print("登录成功")
         return True
@@ -46,7 +46,8 @@ def login(username,userlist):
         print("登录失败")
         return False
 
-def signIn(username,userlist):
+
+def signIn(username, userlist):
     if username in userlist.values():
         print("用户名已经存在")
     else:
@@ -71,9 +72,14 @@ def judgeKnowledge(userKnowledge):
 
 
 # 随机抽取知识点的题目
-def randomExercise(knowledgeId):
+def randomExercise(knowledgeId, num=None):
+    # 如果exerciseId=None 则随机抽取
+    # 如果不为空则在原有题号的基础上更新为下一题
     knowledge = chapter4_knowledge_itos[knowledgeId]
-    num = np.random.randint(chapter4_exercises_num[knowledge])
+    if num == None:
+        num = np.random.randint(chapter4_exercises_num[knowledge])
+    else:
+        num = (num + 1) % chapter4_exercises_num[knowledge]
     return computeExerciseId(knowledgeId, num)
 
 
@@ -85,13 +91,30 @@ def computeExerciseId(knowledgeId, num):
     return exerciseId + num
 
 
+def judgeExerciseScore(exercise):
+    if computeExerciseScore(exercise) > 0.5:
+        return True
+    else:
+        return False
+
+
 def computeExerciseScore(exercise):
     # exercise = [rigth times, wrong times]
     return ((exercise[0] + 1) / (exercise[1] + 2))
 
+def fetchExercise(exerciseId):
+    table = chapter4_exercises_file.loc[[exerciseId]]
+    exerciseTitle = table[['title']].values[0][0]
+    exerciseAnswer = table[['right_answer']].values[0][0]
+    exerciseTip = table[['study_tips']].values[0][0]
+    return exerciseTitle,exerciseAnswer,exerciseTip
+
+
 
 def run():
     username = 'test'
+    # 是否继续学习
+    learningTag = True
     if (login(username, userlist)):
         userId = userlist_stoi[username]
         # 加载用户的信息
@@ -103,17 +126,51 @@ def run():
 
         if knowledgeId == knowledge_point_num:
             print("本章知识点学习完成")
-            return
 
-        while(knowledgeId != knowledge_point_num):
-
+        # 用户做完所有知识点的题目时结束
+        while (knowledgeId != knowledge_point_num & learningTag):
             # 随机抽取指定知识点的题目
             exerciseId = randomExercise(knowledgeId)
+            # 判断随机的题目是否掌握
+            while judgeExerciseScore(userExercise[exerciseId]):
+                exerciseId = randomExercise(knowledgeId,exerciseId)
+            # 显示题目
+            print(exerciseId)
+            exerciseTitle, exerciseAnswer, exerciseTip = fetchExercise(exerciseId)
+            print(exerciseTitle)
+            # 做题
+            print("请作答：(输入'exit'停止作答)")
+            userAnswer = input()
 
+            if userAnswer == 'exit':
+                break
 
+            # 显示正确答案
+            if userAnswer == exerciseAnswer:
+                print("回答正确")
+                # 更新用户数据
+                userExercise[exerciseId][0]+=1
+                userKnowledge[knowledgeId][0]+=1
+            else:
+                print("回答错误")
+                # 更新用户数据
+                userExercise[exerciseId][1] += 1
+                userKnowledge[knowledgeId][1] += 1
+            print(f"正确答案:{exerciseAnswer}")
+            if exerciseTip!= 'nan':
+                print(f"{exerciseTip}")
+            print("*"*20)
+
+            # 判断知识点学习情况
+            knowledgeId = judgeKnowledge(userKnowledge)
+
+            if knowledgeId == knowledge_point_num:
+                print("本章知识点学习完成")
+
+        # 更新用户信息
+        userKnowledgeTable[userId] = userKnowledge
+        userExerciseTable[userId] = userExercise
+        print(f"userKnowledge:{userKnowledge}")
+        print(f"userExercise:{userExercise}")
 
 run()
-
-
-
-
