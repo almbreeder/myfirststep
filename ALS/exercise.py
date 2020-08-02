@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import re
 import os
+from pathlib import Path
 
 exercise_num = 306
 knowledge_point_num = 25
@@ -32,10 +33,13 @@ for exercise in chapter4_exercises:
 # 用户列表
 userlist = {0: "test"}
 userlist_stoi = {"test": 0}
-# 用户的做题记录表
-userExerciseTable = np.zeros([1, exercise_num, 2])
-# 用户知识点学习情况
-userKnowledgeTable = np.zeros([1, knowledge_point_num, 2])
+
+def initTable():
+    # 用户的做题记录表
+    userExerciseTable = np.zeros([1, exercise_num, 2])
+    # 用户知识点学习情况
+    userKnowledgeTable = np.zeros([1, knowledge_point_num, 2])
+    return userExerciseTable,userKnowledgeTable
 
 
 def login(username, userlist):
@@ -112,6 +116,15 @@ def fetchExercise(exerciseId):
 
 
 def run():
+    userExerciseTablePath = Path(underPath+'userExerciseTable.npz')
+
+    #加载用户信息
+    if userExerciseTablePath.is_file():
+        userExerciseTable = np.load('userExerciseTable.npz')['arr_0']
+        userKnowledgeTable= np.load('userKnowledgeTable.npz')['arr_0']
+    else:
+        userExerciseTable, userKnowledgeTable = initTable()
+
     username = 'test'
     # 是否继续学习
     learningTag = True
@@ -170,7 +183,9 @@ def run():
         # 更新用户信息
         userKnowledgeTable[userId] = userKnowledge
         userExerciseTable[userId] = userExercise
-        print(f"userKnowledge:{userKnowledge}")
-        print(f"userExercise:{userExercise}")
+
+        # 存储用户信息
+        np.savez('userKnowledgeTable',userKnowledgeTable)
+        np.savez('userExerciseTable', userExerciseTable)
 
 run()
