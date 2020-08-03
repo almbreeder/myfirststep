@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import os
 from pathlib import Path
+import json
 
 exercise_num = 306
 knowledge_point_num = 25
@@ -31,8 +32,13 @@ for exercise in chapter4_exercises:
         chapter4_exercises_num[exercise[:-3]] += 1
 
 # 用户列表
-userlist = {0: "test"}
-userlist_stoi = {"test": 0}
+# userlist = {0: "test"}
+# userlist_stoi = {"test": 0}
+with open('userlist.json','r',encoding='utf-8') as f:
+    userlist = json.load(f)
+
+with open('userlist_stoi.json','r',encoding='utf-8') as f:
+    userlist_stoi = json.load(f)
 
 def initTable():
     # 用户的做题记录表
@@ -41,6 +47,12 @@ def initTable():
     userKnowledgeTable = np.zeros([1, knowledge_point_num, 2])
     return userExerciseTable,userKnowledgeTable
 
+#添加用户的知识点和习题记录
+def addUserTable(UserExerciseTable,UserKnowledgeTable):
+    newUserExerciseTable, newUserrKnowledgeTable = initTable()
+    UserExerciseTable = np.concatenate((UserExerciseTable,newUserExerciseTable),axis=0)
+    UserKnowledgeTable = np.concatenate((UserKnowledgeTable,newUserrKnowledgeTable),axis=0)
+    return UserExerciseTable,UserKnowledgeTable
 
 def login(username, userlist):
     if username in userlist.values():
@@ -51,13 +63,20 @@ def login(username, userlist):
         return False
 
 
-def signIn(username, userlist):
-    if username in userlist.values():
-        print("用户名已经存在")
-    else:
-        userlist[len(userlist)] = username
-        userlist_stoi[username] = len(userlist_stoi)
-        print("注册成功")
+def signIn(userlist,userExerciseTable,userKnowledgeTable):
+
+    while True:
+        username = input("输入注册用户名(输入exit退出注册界面)：")
+        if username == 'exit':
+            break
+        if username in userlist.values():
+            print("用户名已经存在")
+        else:
+            userlist[len(userlist)] = username
+            userlist_stoi[username] = len(userlist_stoi)
+            print("注册成功")
+            # 更新表单
+            return addUserTable(userExerciseTable, userKnowledgeTable)
 
 
 # 按顺序查询用户的知识点学习情况
@@ -72,7 +91,7 @@ def judgeKnowledge(userKnowledge):
             continue
         else:
             return id
-        return knowledge_point_num
+    return knowledge_point_num
 
 
 # 随机抽取知识点的题目
@@ -115,19 +134,27 @@ def fetchExercise(exerciseId):
 
 
 
+
+
+
 def run():
     userExerciseTablePath = Path(underPath+'userExerciseTable.npz')
 
-    #加载用户信息
+    #加载所有用户信息
     if userExerciseTablePath.is_file():
         userExerciseTable = np.load('userExerciseTable.npz')['arr_0']
         userKnowledgeTable= np.load('userKnowledgeTable.npz')['arr_0']
     else:
         userExerciseTable, userKnowledgeTable = initTable()
 
-    username = 'test'
-    # 是否继续学习
-    learningTag = True
+    haveAcount = input("有账号的用户输入任意键跳过，没有账号的用户输入‘注册’：")
+
+    if haveAcount == '注册':
+        #返回新的table
+        userExerciseTable, userKnowledgeTable = signIn(userlist,userExerciseTable,userKnowledgeTable)
+
+    username = input("输入你的用户名")
+
     if (login(username, userlist)):
         userId = userlist_stoi[username]
         # 加载用户的信息
@@ -136,23 +163,23 @@ def run():
 
         # 判断知识点学习情况
         knowledgeId = judgeKnowledge(userKnowledge)
-
+        print(f"knowledgeId:{knowledgeId}")
         if knowledgeId == knowledge_point_num:
             print("本章知识点学习完成")
 
         # 用户做完所有知识点的题目时结束
-        while (knowledgeId != knowledge_point_num & learningTag):
+        while (knowledgeId != knowledge_point_num):
             # 随机抽取指定知识点的题目
             exerciseId = randomExercise(knowledgeId)
             # 判断随机的题目是否掌握
             while judgeExerciseScore(userExercise[exerciseId]):
                 exerciseId = randomExercise(knowledgeId,exerciseId)
             # 显示题目
-            print(exerciseId)
+            print(f"exerciseId:{exerciseId}")
             exerciseTitle, exerciseAnswer, exerciseTip = fetchExercise(exerciseId)
             print(exerciseTitle)
             # 做题
-            print("请作答：(输入'exit'停止作答)")
+            print(f"请作答第{exerciseId+2}题：(输入'exit'停止作答)")
             userAnswer = input()
 
             if userAnswer == 'exit':
@@ -170,13 +197,14 @@ def run():
                 userExercise[exerciseId][1] += 1
                 userKnowledge[knowledgeId][1] += 1
             print(f"正确答案:{exerciseAnswer}")
-            if exerciseTip!= 'nan':
-                print(f"{exerciseTip}")
+            #if not np.isnan(exerciseTip):
+            print(f"{exerciseTip}")
+            print(f"{input('按任意键进入下一题:')}")
             print("*"*20)
 
             # 判断知识点学习情况
             knowledgeId = judgeKnowledge(userKnowledge)
-
+            print(f"knowledgeId:{knowledgeId}")
             if knowledgeId == knowledge_point_num:
                 print("本章知识点学习完成")
 
@@ -187,5 +215,11 @@ def run():
         # 存储用户信息
         np.savez('userKnowledgeTable',userKnowledgeTable)
         np.savez('userExerciseTable', userExerciseTable)
+
+        # 存储用户名列表
+        with open('userlist.json','w',encoding='utf-8') as fw:
+            json.dump(userlist,fw)
+        with open('userlist_stoi.json','w',encoding='utf-8') as fw:
+            json.dump(userlist_stoi,fw)
 
 run()
