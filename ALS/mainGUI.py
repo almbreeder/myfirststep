@@ -21,6 +21,7 @@ class LoginWindow(tk.Tk):
         # 加载窗体
         self.setup_UI()
 
+
     def setup_UI(self):
         # ttk中控件使用style对象设定
         self.Style01 = ttk.Style()
@@ -69,10 +70,16 @@ class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         self.username = login_name
+
+        self.exercise_num = system.N
+
         self.title("答题界面")
         self.homepage = tk.Label(bg='white', text='学生自测界面', font=("微软雅黑", 20)).pack(fill=tk.X, pady=20)
         self["bg"] = "white"
         self.resizable(width=True, height=True)
+
+        self.Login_image = tk.PhotoImage(file="." + os.sep + "img" + os.sep + "loginGUI.png")
+        self.Label_image = tk.Label(self, image=self.Login_image)
 
         self.width = 600
         self.height = 900
@@ -84,26 +91,83 @@ class MainWindow(tk.Tk):
 
         self.initGUI = True
         self.initJudge = True
+        self.startGUI = True
         self.content =''
         self.choices =[]
-        self.run()
+        # 题目推荐列表，如果为1则为协同算法推荐
+        self.exercises_id_list = dict()
+        self.initUI()
+        # self.run()
         self.mainloop()
 
-    def run(self):
+    def initUI(self):
+        self.startGUI = True
+        if not self.initGUI:
+            self.question_frame.destroy()
+            self.button_frame.destroy()
+            self.Radio_frame.destroy()
+            self.explaination_frame.destroy()
+            self.initGUI = False
 
+        self.frame_info = tk.Frame(self,bg = 'white')
+        self.frame_info.pack(fill=tk.X)
+        tk.Label(self.frame_info, bg='white', text='姓名:  '+self.username, font=("微软雅黑", 16), padx=10, pady=10).pack()
+
+        self.frame_cv = tk.Frame(self,bg = 'white')
+        self.frame_cv.pack(fill=tk.X)
+        canvas_width = 1000
+        canvas_height = 500
+        cv = tk.Canvas(self.frame_cv,bg = 'white',width=canvas_width,height = canvas_height)
+        img =  self.Login_image
+        cv.create_image(canvas_width/2,canvas_height/2,image = img)
+        cv.pack()
+
+        self.frame_xuanze = tk.Frame(self,bg = 'white')
+        self.frame_xuanze.pack(pady=50)
+        #single_button =  tk.Button(frame,background = 'white',text = '单个题',image = self.Login_image).pack(padx=10, pady=10)
+        single_button = tk.Button(self.frame_xuanze, text='单题', width=50, font=("华文楷体", 20),command = lambda :self.run(True)).pack(padx=50, pady=10)
+        multi_button =  tk.Button(self.frame_xuanze, text = '套题',width = 50, font=("华文楷体", 20),command = lambda : self.run()).pack(padx=50, pady=10)
+
+
+    def run(self,tag = False):
         exercises, remains = system.userCF(self.username)
+        print(exercises)
+        print(tag)
+        if tag:
+            self.exercise_num = 1
 
-        if remains == 0:
+        exercises_id_list = []
+        for id in exercises:
+            #去除非选择题
+            exercise_id = system.judge_choices_for_GUI(id[0])
+            if exercise_id == id[0]:
+                self.exercises_id_list.setdefault(exercise_id,1)
+                self.exercises_id_list[exercise_id] =1
+                exercises_id_list.append(exercise_id)
+            else:
+                self.exercises_id_list.setdefault(exercise_id, 0)
+                self.exercises_id_list[exercise_id] = 0
+                exercises_id_list.append(exercise_id)
+
+        while len(exercises_id_list) < system.N:
             exercise_id = system.recommend_for_GUI()
-        else:
-            exercise_id = int(exercises[0][0])
+            self.exercises_id_list.setdefault(exercise_id,0)
+            exercises_id_list.append(exercise_id)
 
-        exercise_title, self.exercise_answer, self.exercise_tip = system.fetch_exercise(exercise_id)
+        self.current_exercise_id = exercises_id_list[self.exercise_num-1]
+        exercise_title, self.exercise_answer, self.exercise_tip = system.fetch_exercise(exercises_id_list[self.exercise_num-1])
         exercise_desc = system.preprocess(exercise_title)
         self.exercise_tip = system.preprocess_tip(self.exercise_tip)
 
-        self.content = exercise_desc[0]
+        self.content = exercise_desc[0].strip()
         self.choices = [line for line in exercise_desc[1:]]
+
+        if self.startGUI:
+            self.frame_info.destroy()
+            self.frame_cv.destroy()
+            self.frame_xuanze.destroy()
+            self.startGUI = False
+
         if not self.initGUI:
             self.question_frame.destroy()
             self.button_frame.destroy()
@@ -116,7 +180,7 @@ class MainWindow(tk.Tk):
     def setUI(self):
         self.question_frame = tk.Frame(self, bg='white')
         self.question_frame.pack(fill=tk.X)
-        tk.Label(self.question_frame, bg='white', text='题目:', font=("微软雅黑", 16), padx=10, pady=10).pack(side=tk.LEFT, pady=5)
+        # tk.Label(self.question_frame, bg='white', text='题目:', font=("微软雅黑", 16), padx=10, pady=10).pack(side=tk.LEFT, pady=5)
         questionLabel = tk.Label(self.question_frame, bg='white', text=self.content, wraplength=400, justify='left',
                                  font=("微软雅黑", 16))
         questionLabel.pack(fill=tk.X, pady=30)
@@ -132,10 +196,15 @@ class MainWindow(tk.Tk):
 
         self.button_frame = tk.Frame(self, bg='white')
         self.button_frame.pack( )
-        tk.Button(self.button_frame, text='提交', bg='green', width=20, font=("微软雅黑", 12), command= lambda :self.run()).pack(
-            side=tk.LEFT,padx=10, pady=10)
-        tk.Button(self.button_frame, text='下一题', bg='royalblue', width=20, font=("微软雅黑", 12), command= lambda :self.run()).pack(
-            side=tk.RIGHT,padx=10, pady=10)
+        print(self.exercise_num)
+        if self.exercise_num == 1:
+            self.exercise_num = system.N
+            tk.Button(self.button_frame, text='提交', bg='green', width=20, font=("微软雅黑", 12), command= lambda :self.initUI()).pack(
+                side=tk.LEFT,padx=10, pady=10)
+        else:
+            self.exercise_num -= 1
+            tk.Button(self.button_frame, text='下一题', bg='royalblue', width=20, font=("微软雅黑", 12), command= lambda :self.run()).pack(
+                side=tk.RIGHT,padx=10, pady=10)
 
         self.explaination_frame = tk.Frame(self, bg='white')
         self.explaination_frame.pack(fill=tk.X)
@@ -161,10 +230,14 @@ class MainWindow(tk.Tk):
         tk.Label(self.explaination_frame, bg='yellow', text='正确答案：'+self.exercise_answer, font=("微软雅黑", 16), padx=10, pady=10).pack(pady=5)
         tk.Label(self.explaination_frame, bg='grey', text='解析：'+self.exercise_tip, font=("微软雅黑", 16), padx=10,
                  pady=10).pack(pady=5)
+        if self.exercises_id_list[self.current_exercise_id] == 0:
+            tk.Label(self.explaination_frame, bg='grey', text='根据薄弱知识点推荐', font=("微软雅黑", 16), padx=10, pady=10).pack(pady=5)
+        else:
+            tk.Label(self.explaination_frame, bg='grey', text='根据协同过滤算法推荐', font=("微软雅黑", 16), padx=10, pady=10).pack(
+                pady=5)
 
 if __name__ == '__main__':
-    import git
-    login_name = ''
+    login_name = '朱文龙'
     data_path = os.getcwd() + '\\data\\'
     system = AdaptiveLearning(data_path)
     system.load_data(data_path)
@@ -173,4 +246,5 @@ if __name__ == '__main__':
     this_login.mainloop()
     user = User(login_name, system.users_exercise_info[login_name], system.users_knowledge_info[login_name], \
                 system.chapter4_requirement, system.knowledge_exercise_id_range)
+
     mainWindow = MainWindow()
