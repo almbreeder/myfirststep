@@ -26,6 +26,8 @@ class AdaptiveLearning(object):
         self.users_knowledge_info = dict()
         self.knowledge_exercise_id_range = dict()
         self.exercises_info = pd.read_excel(data_path + '初中物理8年级教研精选题306题.xlsx')
+        self.K = 5
+        self.N = 5
 
     def load_data(self, data_path):
         print("导入数据中......")
@@ -58,6 +60,9 @@ class AdaptiveLearning(object):
         #     time.sleep(0.01)
         print("数据导入完成\n************************")
 
+    def load_knowledge_table(self):
+        pass
+
     def login(self):
         username = input("用户名：")
         password = input("密码：")
@@ -78,7 +83,7 @@ class AdaptiveLearning(object):
             print("用户名已被占用")
 
     def fetch_exercise(self, exercise_id):
-        table = self.exercises_info.loc[[exercise_id]]
+        table = self.exercises_info.loc[[int(exercise_id)]]
         # values = to_numpy
         exercise_title = table[['title']].values[0][0]
         exercise_answer = table[['right_answer']].values[0][0]
@@ -92,12 +97,14 @@ class AdaptiveLearning(object):
             r'<p class="tb_exam_line">|</p>|<span class="tiankong" style="text-decoration:underline;">|</span>')
         blankspace = re.compile(r'\u3000')
         tag = re.compile('<span class="rx">')
+        # other = re.compile(r'<.*?>')
 
         exercise_desc = []
         exercise_desc.append('')
         for i in range(len(exercise)):
             exercise[i] = re.sub(pattern, '', exercise[i])
             exercise[i] = re.sub(blankspace, '_', exercise[i])
+            # exercise[i] = re.sub(other, '', exercise[i])
             if re.match(tag, exercise[i]):
                 exercise_desc.append(re.sub(tag, '', exercise[i]))
             else:
@@ -142,13 +149,21 @@ class AdaptiveLearning(object):
 
     def recommend_for_GUI(self):
         exercise_id = np.random.randint(3,self.exercises_nums)
-        _, _, exercise_tip = self.fetch_exercise(exercise_id)
-        exercise_tip = self.preprocess_tip(exercise_tip)
-        while(exercise_tip == '略'):
+        exercise_title, _, exercise_tip = self.fetch_exercise(exercise_id)
+        exercise_desc = self.preprocess(exercise_title)
+        while(len(exercise_desc) == 1):
             exercise_id = np.random.randint(3, self.exercises_nums)
-            _, _, exercise_tip = self.fetch_exercise(exercise_id)
-            exercise_tip = self.preprocess_tip(exercise_tip)
+            exercise_title, _, _ = self.fetch_exercise(exercise_id)
+            exercise_desc = self.preprocess(exercise_title)
         return exercise_id
+
+    def judge_choices_for_GUI(self,exercise_id):
+        exercise_title, _, exercise_tip = self.fetch_exercise(exercise_id)
+        exercise_desc = self.preprocess(exercise_title)
+        if len(exercise_desc) == 1:
+            return self.recommend_for_GUI()
+        else:
+            return exercise_id
 
     def caculateSim(self):
         exercise_user = dict()
@@ -177,8 +192,8 @@ class AdaptiveLearning(object):
 
     def userCF(self, username):
         user_sim_matrix = self.caculateSim()
-        K = 3
-        N = 1
+        K = self.K
+        N = self.N
         rank = {}
         done_exercises = self.users_exercise_info[username]
 

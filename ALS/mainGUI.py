@@ -4,7 +4,7 @@ import tkinter.messagebox as msg
 from recommend import User, AdaptiveLearning
 import os
 import json
-
+import matplotlib.pyplot as plt
 
 class LoginWindow(tk.Tk):
     """
@@ -29,7 +29,7 @@ class LoginWindow(tk.Tk):
         self.Style01.configure("TEntry", font=("华文黑体", 20, "bold"))
         self.Style01.configure("TButton", font=("华文黑体", 20, "bold"), foreground="royalblue")
         # 创建一个Label标签展示图片
-        self.Login_image = tk.PhotoImage(file="." + os.sep + "img" + os.sep + "logingui.png")
+        self.Login_image = tk.PhotoImage(file="." + os.sep + "img" + os.sep + "开始答题.png")
         self.Label_image = tk.Label(self, image=self.Login_image)
         self.Label_image.pack(padx=10, pady=10)
         # 创建一个Label标签 + Entry   --- 用户名
@@ -78,11 +78,13 @@ class MainWindow(tk.Tk):
         self["bg"] = "white"
         self.resizable(width=True, height=True)
 
-        self.Login_image = tk.PhotoImage(file="." + os.sep + "img" + os.sep + "loginGUI.png")
-        self.Label_image = tk.Label(self, image=self.Login_image)
+        self.show_status_image = tk.PhotoImage(file="." + os.sep + "img" + os.sep + "开始答题.png")
+        # self.show_status_image = tk.Label(self, image=self.show_status_image)
 
-        self.width = 600
-        self.height = 900
+        self.right_and_wrong = [0,0]
+
+        self.width = 1920
+        self.height = 1080
         self.screenwidth = self.winfo_screenwidth()
         self.screenheight = self.winfo_screenheight()
         alignstr = '%dx%d+%d+%d' % (
@@ -92,6 +94,7 @@ class MainWindow(tk.Tk):
         self.initGUI = True
         self.initJudge = True
         self.startGUI = True
+        self.startCv = True
         self.content =''
         self.choices =[]
         # 题目推荐列表，如果为1则为协同算法推荐
@@ -101,6 +104,10 @@ class MainWindow(tk.Tk):
         self.mainloop()
 
     def initUI(self):
+        if not self.startCv:
+            self.piepicture()
+        self.startCv = False
+        self.right_and_wrong = [0,0]
         self.startGUI = True
         if not self.initGUI:
             self.question_frame.destroy()
@@ -115,12 +122,12 @@ class MainWindow(tk.Tk):
 
         self.frame_cv = tk.Frame(self,bg = 'white')
         self.frame_cv.pack(fill=tk.X)
-        canvas_width = 1000
+        canvas_width = 750
         canvas_height = 500
-        cv = tk.Canvas(self.frame_cv,bg = 'white',width=canvas_width,height = canvas_height)
-        img =  self.Login_image
-        cv.create_image(canvas_width/2,canvas_height/2,image = img)
-        cv.pack()
+        self.cv = tk.Canvas(self.frame_cv,bg = 'white',width=canvas_width,height = canvas_height)
+        img =  self.show_status_image
+        self.cv.create_image(canvas_width/2,canvas_height/2,image = img)
+        self.cv.pack()
 
         self.frame_xuanze = tk.Frame(self,bg = 'white')
         self.frame_xuanze.pack(pady=50)
@@ -130,24 +137,25 @@ class MainWindow(tk.Tk):
 
 
     def run(self,tag = False):
-        exercises, remains = system.userCF(self.username)
-        print(exercises)
-        print(tag)
+        exercises_id_list = []
         if tag:
             self.exercise_num = 1
-
-        exercises_id_list = []
-        for id in exercises:
-            #去除非选择题
-            exercise_id = system.judge_choices_for_GUI(id[0])
-            if exercise_id == id[0]:
-                self.exercises_id_list.setdefault(exercise_id,1)
-                self.exercises_id_list[exercise_id] =1
-                exercises_id_list.append(exercise_id)
-            else:
-                self.exercises_id_list.setdefault(exercise_id, 0)
-                self.exercises_id_list[exercise_id] = 0
-                exercises_id_list.append(exercise_id)
+            exercise_id = system.recommend_for_GUI()
+            self.exercises_id_list.setdefault(exercise_id, 0)
+            exercises_id_list.append(exercise_id)
+        else:
+            exercises, remains = system.userCF(self.username)
+            for id in exercises:
+                #去除非选择题
+                exercise_id = system.judge_choices_for_GUI(id[0])
+                if exercise_id == id[0]:
+                    self.exercises_id_list.setdefault(exercise_id,1)
+                    self.exercises_id_list[exercise_id] =1
+                    exercises_id_list.append(exercise_id)
+                else:
+                    self.exercises_id_list.setdefault(exercise_id, 0)
+                    self.exercises_id_list[exercise_id] = 0
+                    exercises_id_list.append(exercise_id)
 
         while len(exercises_id_list) < system.N:
             exercise_id = system.recommend_for_GUI()
@@ -221,9 +229,12 @@ class MainWindow(tk.Tk):
         num2alpha = {'0': 'A', '1': 'B', '2': 'C', '3': 'D', '4': 'E'}
         answer = num2alpha[str(self.vanswer.get())]
         if answer == self.exercise_answer:
+            self.right_and_wrong[0] += 1
             msg.showinfo('提示', '回答正确')
         else:
+            self.right_and_wrong[1] += 1
             msg.showinfo('提示', '回答错误')
+
         self.explaination_frame = tk.Frame(self, bg='white')
         self.explaination_frame.pack(fill=tk.X)
         tk.Label(self.explaination_frame, bg='white', text='', font=("微软雅黑", 16), padx=10, pady=10).pack(pady=5)
@@ -235,6 +246,18 @@ class MainWindow(tk.Tk):
         else:
             tk.Label(self.explaination_frame, bg='grey', text='根据协同过滤算法推荐', font=("微软雅黑", 16), padx=10, pady=10).pack(
                 pady=5)
+
+    def piepicture(self):
+        labels = 'right', 'wrong'
+        sizes = self.right_and_wrong
+        colors = 'lightgreen', 'lightcoral'
+        explode = 0, 0
+        plt.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', shadow=True, startangle=50)
+        plt.axis('equal')
+        plt.savefig('./img/status.png')
+        self.show_status_image = tk.PhotoImage(file="." + os.sep + "img" + os.sep + "status.png")
+        plt.close()
+
 
 if __name__ == '__main__':
     login_name = '朱文龙'
